@@ -42,6 +42,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.props" />
   </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
@@ -56,16 +57,28 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>$(SolutionDir)..\3rdparty\mono-2.0\include;$(IncludePath)</IncludePath>
-    <OutDir>$(SolutionDir)..\bin\$(Configuration)\</OutDir>
+    <IncludePath>$(SolutionDir)..\3rdparty\minhook\include;$(SolutionDir)..\3rdparty\mono-2.0\include;$(IncludePath)</IncludePath>
+    <OutDir>$(SolutionDir)..\bin\$(Configuration)\$(Platform)\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>$(SolutionDir)..\3rdparty\mono-2.0\include;$(IncludePath)</IncludePath>
-    <OutDir>$(SolutionDir)..\bin\$(Configuration)\</OutDir>
+    <IncludePath>$(SolutionDir)..\3rdparty\minhook\include;$(SolutionDir)..\3rdparty\mono-2.0\include;$(IncludePath)</IncludePath>
+    <OutDir>$(SolutionDir)..\bin\$(Configuration)\$(Platform)\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Public Release|Win32'">
-    <IncludePath>$(SolutionDir)..\3rdparty\mono-2.0\include;$(IncludePath)</IncludePath>
-    <OutDir>$(SolutionDir)..\bin\$(Configuration)\</OutDir>
+    <IncludePath>$(SolutionDir)..\3rdparty\minhook\include;$(SolutionDir)..\3rdparty\mono-2.0\include;$(IncludePath)</IncludePath>
+    <OutDir>$(SolutionDir)..\bin\$(Configuration)\$(Platform)\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <IncludePath>$(SolutionDir)..\3rdparty\minhook\include;$(SolutionDir)..\3rdparty\mono-2.0\include;$(IncludePath)</IncludePath>
+    <OutDir>$(SolutionDir)..\bin\$(Configuration)\$(Platform)\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <IncludePath>$(SolutionDir)..\3rdparty\minhook\include;$(SolutionDir)..\3rdparty\mono-2.0\include;$(IncludePath)</IncludePath>
+    <OutDir>$(SolutionDir)..\bin\$(Configuration)\$(Platform)\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Public Release|x64'">
+    <IncludePath>$(SolutionDir)..\3rdparty\minhook\include;$(SolutionDir)..\3rdparty\mono-2.0\include;$(IncludePath)</IncludePath>
+    <OutDir>$(SolutionDir)..\bin\$(Configuration)\$(Platform)\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -109,13 +122,40 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="HooksX64.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Public Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="HooksX86.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Public Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="MemFunctions.cpp" />
     <ClCompile Include="MonoLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="HooksCommon.h" />
+    <ClInclude Include="MemFunctions.h" />
     <ClInclude Include="MonoLoader.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="HooksX64ASM.asm">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Public Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <FileType>Document</FileType>
+    </MASM>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\3rdparty\minhook\build\VC14\libMinHook.vcxproj">
+      <Project>{f142a341-5ee0-442d-a15f-98ae9b48dbae}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />
   </ImportGroup>
 </Project>

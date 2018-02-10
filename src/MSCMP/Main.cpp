@@ -3,6 +3,10 @@
 #include <assert.h>
 #include "steam_api.h"
 
+static bool LauncherMode64Bit = false;
+
+
+
 /**
  * Inject DLL into process.
  *

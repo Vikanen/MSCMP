@@ -41,6 +41,7 @@ bool Mono::Setup(const char *MonoDllPath)
 	SETUP_FUNCTION(mono_add_internal_call);
 	SETUP_FUNCTION(mono_string_to_utf8);
 	SETUP_FUNCTION(g_free);
+	SETUP_FUNCTION(mono_print_unhandled_exception);
 
 #undef SETUP_FUNCTION
 

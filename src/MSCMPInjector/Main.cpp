@@ -2,6 +2,9 @@
 #include <process.h>
 
 #include "MonoLoader.h"
+#include "MemFunctions.h"
+
+#include <exception>
 
 Mono mono;
 
@@ -34,6 +37,8 @@ static void ShowMessageBox(MonoString *message, MonoString *title)
 		mono.g_free(titleText);
 	}
 }
+
+FILE *unityLog = nullptr;
 
 bool RunMP(const char *clientDllPath)
 {
@@ -74,15 +79,23 @@ bool RunMP(const char *clientDllPath)
 	// As there is no 'gold method' of verifying that the call succeeded (at least not documented).
 	// We trust it and just invoke the method.
 
+	MonoObject *exception = NULL;
 	mono.mono_runtime_invoke(monoClassMethod, nullptr, nullptr, nullptr);
+	if (exception)
+	{
+		mono.mono_print_unhandled_exception(exception);
+		return false;
+	}
 	return true;
 }
 
 char monoDllPath[MAX_PATH] = { 0 };
 char ClientDllPath[MAX_PATH] = { 0 };
 
+extern "C"
 void SetupMSCMP()
 {
+	MessageBox(NULL, "W", NULL, NULL);
 	if (!RunMP(ClientDllPath))
 	{
 		MessageBox(NULL, "Failed to run multiplayer mod!", "MSCMP", MB_ICONERROR);
@@ -90,20 +103,8 @@ void SetupMSCMP()
 	}
 }
 
-typedef int (*sub_6596C0_t)();
-sub_6596C0_t sub_6596C0 = 0;
-
-int _stdcall InitHook()
-{
-	int result = sub_6596C0();
-	SetupMSCMP();
-	return result;
-}
-
-typedef void (*GiveChanceToAttachDebugger_t)();
-GiveChanceToAttachDebugger_t GiveChanceToAttachDebugger = nullptr;
-
-void _cdecl GiveChanceToAttachDebuggerHook()
+extern "C"
+void _cdecl SetupDebugger()
 {
 	if (!getenv("UNITY_GIVE_CHANCE_TO_ATTACH_DEBUGGER"))
 	{
@@ -112,7 +113,7 @@ void _cdecl GiveChanceToAttachDebuggerHook()
 
 	// First of all attach logger so we will know what happens when mono does not like what we send to it.
 
-	mono.mono_unity_set_vprintf_func([](const char *message, va_list args) -> int
+	mono.mono_unity_set_vprintf_func([](const char *message, va_list args) -> size_t
 	{
 		char full_message[2048] = { 0 };
 		vsprintf(full_message, message, args);
@@ -129,27 +130,6 @@ void _cdecl GiveChanceToAttachDebuggerHook()
 	mono.mono_debug_init(MONO_DEBUG_FORMAT_MONO);
 }
 
-void Unprotect(ptrdiff_t where, size_t count)
-{
-	DWORD oldProtection = NULL;
-	VirtualProtect(reinterpret_cast<void *>(where), count, PAGE_EXECUTE_READWRITE, &oldProtection);
-}
-
-template <typename TYPE>
-void WriteValue(ptrdiff_t where, TYPE value)
-{
-	Unprotect(where, sizeof(value));
-	*reinterpret_cast<TYPE  *>(where) = value;
-}
-
-
-void InstallCallHook(ptrdiff_t where, ptrdiff_t func)
-{
-	WriteValue<unsigned char>(where, 0xE8);
-	WriteValue<ptrdiff_t>(where + 1, func - (where + 5));
-}
-
-FILE *unityLog = nullptr;
 
 /**
  * Custom unity log handler.
@@ -159,9 +139,29 @@ int _cdecl UnityLog(int a1, const char *message, va_list args)
 	fprintf(unityLog, "[%i] ", a1);
 	vfprintf(unityLog, message, args);
 	va_end(args);
+#ifdef _DEBUG
+	fflush(unityLog);
+#endif
 	return 0;
 }
 
+
+/** The relative path where common multiplayer mod stuff is stored. */
+#define RELATIVE_PATH "\\.."
+
+/** Memory address where unit custom log callback should be set. */
+ptrdiff_t CustomLogCallbackAddress = 0;
+
+/**
+ * Method used to install architecture dependent hooks.
+ *
+ * It's implementation can be found in HooksX86.cpp or HooksX64.cpp files.
+ */
+void InstallHooks(ptrdiff_t moduleAddress);
+
+/**
+ * The injector DLL entry point.
+ */
 BOOL WINAPI DllMain(HMODULE hModule, unsigned Reason, void *Reserved)
 {
 	switch (Reason) {
@@ -173,7 +173,7 @@ BOOL WINAPI DllMain(HMODULE hModule, unsigned Reason, void *Reserved)
 
 		char UnityLogPath[MAX_PATH] = { 0 };
 		GetModulePath(GetModuleHandle("MSCMPInjector.dll"), UnityLogPath);
-		strcat(UnityLogPath, "\\unityLog.txt");
+		strcat(UnityLogPath, RELATIVE_PATH "\\unityLog.txt");
 
 		unityLog = fopen(UnityLogPath, "w+");
 		if (!unityLog)
@@ -198,7 +198,7 @@ BOOL WINAPI DllMain(HMODULE hModule, unsigned Reason, void *Reserved)
 		// Now make sure we have client file. Do it here so we will not do any redundant processing.
 
 		GetModulePath(GetModuleHandle("MSCMPInjector.dll"), ClientDllPath);
-		strcat(ClientDllPath, "\\MSCMPClient.dll");
+		strcat(ClientDllPath, RELATIVE_PATH "\\MSCMPClient.dll");
 
 		if (GetFileAttributes(ClientDllPath) == INVALID_FILE_ATTRIBUTES)
 		{
@@ -214,22 +214,14 @@ BOOL WINAPI DllMain(HMODULE hModule, unsigned Reason, void *Reserved)
 			return FALSE;
 		}
 
-		unsigned baseAddress = (unsigned)(GetModuleHandle(NULL)) - 0x400000;
-		sub_6596C0 = (sub_6596C0_t)(baseAddress + 0x006596C0);
+		ptrdiff_t moduleAddress = reinterpret_cast<ptrdiff_t>(GetModuleHandle(NULL));
+		InstallHooks(moduleAddress);
 
-		// Install initialization hook.
-
-		InstallCallHook(baseAddress + 0x0065C2AE, (ptrdiff_t)InitHook);
-
-		// Install command line init hook used to install debugger.
-
-		GiveChanceToAttachDebugger = (GiveChanceToAttachDebugger_t) (baseAddress + 0x005BEB20);
-		InstallCallHook(baseAddress + 0x005493D3, (ptrdiff_t)GiveChanceToAttachDebuggerHook);
+		// Common memory operations:
 
 		// Set custom log callback.
 
-		WriteValue<unsigned>(baseAddress + 0x11E79C4, (ptrdiff_t)UnityLog);
-
+		WriteValue<ptrdiff_t>(CustomLogCallbackAddress, reinterpret_cast<ptrdiff_t>(UnityLog));
 	}
 	break;
 
