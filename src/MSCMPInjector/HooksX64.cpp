@@ -61,8 +61,6 @@ void _cdecl InstallHooks(ptrdiff_t moduleAddress)
 
 	// Setup offsets
 
-	MH_Initialize();
-
 	ptrdiff_t InitHookPos = baseAddress + 0x00000001400304C0;
 	InitFuncReturnAddress = baseAddress + 0x00000001401FF480;
 
@@ -73,19 +71,11 @@ void _cdecl InstallHooks(ptrdiff_t moduleAddress)
 
 	// Install initialization hook.
 
-	void *InitHookTarget = reinterpret_cast<void *>(InitHookPos);
-	MH_CreateHook(InitHookTarget, InitHookFunc, reinterpret_cast<void **>(&OriginalInitHookFunc));
-	MH_EnableHook(InitHookTarget);
-
-
-
-	//MH_CreateHook(reinterpret_cast<void *>(GiveChanceToAttachDebuggerHookPos), InitHookFunc, reinterpret_cast<void **>(&OriginalInitHookFunc));
-
-	// InstallJmpHook(InitHookPos, InitHookJmp);
+	InstallJmpHook(InitHookPos, InitHookJmp);
 
 	// Install command line init hook used to install debugger.
 
-	// InstallJmpHook(GiveChanceToAttachDebuggerHookPos, GiveChanceToAttachDebuggerHookReturnJmp);
+	InstallJmpHook(GiveChanceToAttachDebuggerHookPos, GiveChanceToAttachDebuggerHookReturnJmp);
 }
 
 /* eof */
